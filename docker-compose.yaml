@@ -28,3 +28,13 @@ services:
       - SPARK_SSL_ENABLED=no
     volumes:
       - ./:/app
+
+  etl:
+    build: .
+    container_name: etl
+    environment:
+      - SPARK_MODE=submit
+      - SPARK_MASTER_URL=local[*]
+    volumes:
+      - ./:/app
+    working_dir: /app
