@@ -12,7 +12,7 @@ def standardSave(df, table, primary_key=None):
     3. Saves parquet file into silver folder
     '''
     original = df.count()
-    print(primary_key)
+
     if primary_key:
         df = df.dropDuplicates(primary_key)
         df = df.dropna(subset=primary_key)
@@ -43,7 +43,7 @@ def clean_orders(spark):
     """
     Specific function for orders data. This code does the following:
     1. Fix timestamp string
-    2. Remove null and duplicates (considering on primary key)
+    2. Remove null and duplicates
     3. Save to silver folder
     """
     print("Processing Orders...")
@@ -70,10 +70,10 @@ def clean_orders(spark):
 
 def clean_products(spark):
     """
-    Specific function for products data, it does the following:
+    Specific function for products data. This code does the following:
     1. Join products with translation to get English product category name
     2. Remove Portuguese column
-    3. Remove null and duplicates (considering on primary key)
+    3. Remove null and duplicates
     4. Save to silver folder
     """
     print("Processing Products...")
@@ -120,7 +120,14 @@ def clean_products(spark):
     standardSave(final_df, "products", getPrimaryKey("products"))
 
 def clean_order_items(spark):
-
+    '''
+    Specific function for order_items data. This code does the following:
+    1. Cast number column into decimal
+    2. Cast timestamp column into timestamp
+    3. Remove columns with negative prices (not possible)
+    4. Remove null and duplicates
+    5. Save to silver folder
+    '''
     input_path = f"{bronze_path}/order_items"
     df = spark.read.parquet(input_path)
 
@@ -134,11 +141,16 @@ def clean_order_items(spark):
 
     df = df.filter(col("price") >= 0)
 
-    output_path = f"{silver_path}/order_items"
-    df.write.mode("overwrite").parquet(output_path)
+    standardSave(df, "order_items", getPrimaryKey("order_items"))
 
 def clean_order_payments(spark):
-
+    '''
+    Specific function for order_payments data. This code does the following:
+    1. Cast number column into decimal and integer based on the data
+    2. Remove columns with negative payment value (not possible)
+    3. Remove null and duplicates
+    4. Save to silver folder
+    '''
     input_path = f"{bronze_path}/order_payments"
     df = spark.read.parquet(input_path)
 
@@ -154,7 +166,14 @@ def clean_order_payments(spark):
     standardSave(df, "order_payments", getPrimaryKey("order_payments"))
 
 def clean_order_reviews(spark):
-
+    '''
+    Specific function for order_payments data. This code does the following:
+    1. Cast number column into integer
+    2. Cast timestamp column into timestamp
+    3. Remove column with wrong review id format
+    4. Remove null and duplicates
+    5. Save to silver folder
+    '''
     input_path = f"{bronze_path}/order_reviews"
     df = spark.read.parquet(input_path)
 
@@ -170,6 +189,13 @@ def clean_order_reviews(spark):
     standardSave(df, "order_reviews", getPrimaryKey("order_reviews"))
 
 def clean_location(spark):
+    '''
+    Function to clean dataset containing location column. This code does the following:
+    1. Get the table and column name of the data containing city
+    2. Remove accent from the data (E.g. changing from ã to a)
+    3. Remove null and duplicates
+    4. Save to silver folder
+    '''
     tables = [
         ("customers", "customer_city"),
         ("geolocation", "geolocation_city"),
@@ -184,6 +210,11 @@ def clean_location(spark):
         standardSave(df, table, getPrimaryKey(table))
 
 def clean_translation(spark):
+    '''
+    Specific function for translation data. This code does the following:
+    1. Remove null and duplicates
+    2. Save to silver folder
+    '''
     input_path = f"{bronze_path}/category_name_translate"
     df = spark.read.parquet(input_path)
     standardSave(df, "category_name_translate", getPrimaryKey("category_name_translate"))
