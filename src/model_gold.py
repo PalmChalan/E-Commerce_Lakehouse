@@ -20,7 +20,7 @@ def create_dim_customers(spark):
     cust = spark.read.parquet(f"{silver_path}/customers")
     geo = spark.read.parquet(f"{silver_path}/geolocation")
 
-    
+    # Aggregate Geo to avoid duplicates
     geo_agg = geo.groupBy("geolocation_zip_code_prefix").agg(
         first("geolocation_lat").alias("lat"),
         first("geolocation_lng").alias("lng"),
@@ -28,12 +28,12 @@ def create_dim_customers(spark):
         first("geolocation_state").alias("state")
     )
 
-    
+    # JOIN and Keep Zip Code
     cust.join(geo_agg, cust.customer_zip_code_prefix == geo_agg.geolocation_zip_code_prefix, "left") \
         .select(
             col("customer_id"), 
             col("customer_unique_id"), 
-            col("customer_zip_code_prefix").alias("zip_code"),
+            col("customer_zip_code_prefix").alias("zip_code"), # Renamed for clarity
             col("city"), 
             col("state"), 
             col("lat"), 
@@ -71,16 +71,16 @@ def create_fact_sales(spark):
     orders = spark.read.parquet(f"{silver_path}/orders")
     items = spark.read.parquet(f"{silver_path}/order_items")
     
-   
+    # Inner Join: We only want items that belong to valid orders
     df = items.join(orders, "order_id", "inner")
     
-    
+    # Add Time-based logic
     df = df.withColumn("order_date", to_date(col("order_purchase_timestamp"))) \
            .withColumn("year", year(col("order_purchase_timestamp"))) \
            .withColumn("month", month(col("order_purchase_timestamp"))) \
            .withColumn("weekday", dayofweek(col("order_purchase_timestamp")))
 
-    
+    # Select ALL Lifecycle Timestamps
     df.select(
         "order_id", "order_item_id", "product_id", "seller_id", "customer_id",
         "price", "freight_value", "order_status", 
@@ -106,15 +106,13 @@ def create_fact_payments(spark):
     print("Creating Fact Payments...")
     payments = spark.read.parquet(f"{silver_path}/order_payments")
     
-    
+    # Just the transaction details
     payments.select(
         "order_id", "payment_sequential", "payment_type", 
         "payment_installments", "payment_value"
     ).write.mode("overwrite").parquet(f"{gold_path}/fact_payments")
 
-def main():
-    spark = GetSparkSession("GoldLayer")
-    
+def CreateModel(spark): 
     create_dim_products(spark)
     create_dim_customers(spark)
     create_dim_sellers(spark)
@@ -122,8 +120,3 @@ def main():
     create_fact_sales(spark)
     create_fact_reviews(spark)
     create_fact_payments(spark)
-    
-    spark.stop()
-
-if __name__ == "__main__":
-    main()

@@ -219,9 +219,7 @@ def clean_translation(spark):
     df = spark.read.parquet(input_path)
     standardSave(df, "category_name_translate", getPrimaryKey("category_name_translate"))
 
-def main():
-    spark = GetSparkSession("Silver")
-    
+def CleanData(spark): 
     clean_orders(spark)
     clean_products(spark)
     clean_order_items(spark)
@@ -229,9 +227,3 @@ def main():
     clean_order_reviews(spark)
     clean_location(spark)
     clean_translation(spark)
-    
-    
-    spark.stop()
-
-if __name__ == "__main__":
-    main()
