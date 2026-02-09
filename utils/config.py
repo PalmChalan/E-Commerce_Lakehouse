@@ -6,7 +6,8 @@ gold_path = 'data/gold'
 dataset = [
     {
         "path": f"{base_path}/olist_geolocation_dataset.csv",
-        "table": "geolocation"
+        "table": "geolocation",
+        "primary_key": None
     },
     {
         "path": f"{base_path}/olist_order_items_dataset.csv",
@@ -40,7 +41,8 @@ dataset = [
     },
     {
         "path": f"{base_path}/product_category_name_translation.csv",
-        "table": "category_name_translate"
+        "table": "category_name_translate",
+        "primary_key": None
     },
     {
         "path": f"{base_path}/olist_customers_dataset.csv",

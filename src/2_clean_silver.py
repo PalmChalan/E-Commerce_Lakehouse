@@ -4,9 +4,44 @@ from utils.sparksession import GetSparkSession
 from utils.config import bronze_path, silver_path, dataset
 
 
+def standardSave(df, table, primary_key=None):
+    '''
+    Helper function to save dataset into silver layer. This code does the following:
+    1. Drop duplicate (based on primary key)
+    2. Drop null (based on primary key)
+    3. Saves parquet file into silver folder
+    '''
+    original = df.count()
+    print(primary_key)
+    if primary_key:
+        df = df.dropDuplicates(primary_key)
+        df = df.dropna(subset=primary_key)
+    else:
+        df = df.dropDuplicates()
+        df = df.dropna()
+    final = df.count()
+    print(f"Total dropped rows: {original - final}")
+    out_path = f"{silver_path}/{table}"
+    df.write.mode("overwrite").parquet(out_path)
+    print(f"Saved cleaned {table} to {out_path}")
+
+def getPrimaryKey(table):
+    '''Helper function to get Primary Key of the table'''
+    for item in dataset:
+        if item['table'] == table:
+            return item['primary_key']
+
+def removeAccent(df, column):
+    '''Helper function to remove Spanish Accent from the column'''
+    accents = "áéíóúÁÉÍÓÚãõÃÕâêîôûÂÊÎÔÛçÇ"
+    no_accents = "aeiouAEIOUaoAOaeiouAEIOUcC"
+    df = df.withColumn(column, translate(col(column), accents, no_accents))
+    df = df.withColumn(column, lower(trim(col(column))))
+    return df
+        
 def clean_orders(spark):
     """
-    Specific function for orders data, it does the following:
+    Specific function for orders data. This code does the following:
     1. Fix timestamp string
     2. Remove null and duplicates (considering on primary key)
     3. Save to silver folder
@@ -31,9 +66,7 @@ def clean_orders(spark):
         df = df.withColumn(column, to_timestamp(col(column)))
 
     # Save to Silver
-    output_path = f"{silver_path}/orders"
-    df.write.mode("overwrite").parquet(output_path)
-    print(f"Saved Cleaned Orders to {output_path}")
+    standardSave(df, "orders", getPrimaryKey("orders"))
 
 def clean_products(spark):
     """
@@ -84,9 +117,7 @@ def clean_products(spark):
         final_df = final_df.withColumn(column, col(column).cast(IntegerType()))
 
     # Save to Silver
-    output_path = f"{silver_path}/products"
-    final_df.write.mode("overwrite").parquet(output_path)
-    print(f"Saved Cleaned Products to {output_path}")
+    standardSave(final_df, "products", getPrimaryKey("products"))
 
 def clean_order_items(spark):
 
@@ -120,8 +151,7 @@ def clean_order_payments(spark):
 
     df = df.filter(col("payment_value") >= 0)
 
-    output_path = f"{silver_path}/order_payments"
-    df.write.mode("overwrite").parquet(output_path)
+    standardSave(df, "order_payments", getPrimaryKey("order_payments"))
 
 def clean_order_reviews(spark):
 
@@ -137,58 +167,26 @@ def clean_order_reviews(spark):
 
     df = df.filter(col("review_id").rlike("^[a-f0-9]{32}$"))
 
-    output_path = f"{silver_path}/order_reviews"
-    df.write.mode("overwrite").parquet(output_path)
+    standardSave(df, "order_reviews", getPrimaryKey("order_reviews"))
 
-def removeAccent(spark):
-    folder = ["customers", "geolocation", "sellers"]
-    columns = ["customer_city", "geolocation_city", "seller_city"]
-    accents = "áéíóúÁÉÍÓÚãõÃÕâêîôûÂÊÎÔÛçÇ"
-    no_accents = "aeiouAEIOUaoAOaeiouAEIOUcC"
+def clean_location(spark):
+    tables = [
+        ("customers", "customer_city"),
+        ("geolocation", "geolocation_city"),
+        ("sellers", "seller_city")
+    ]
 
-    for i in range(len(folder)):
-        input_path = f"{bronze_path}/{folder[i]}"
+    for table, column in tables:
+        input_path = f"{bronze_path}/{table}"
         df = spark.read.parquet(input_path)
-        df = df.withColumn(columns[i], translate(col(columns[i]), accents, no_accents))
-        df = df.withColumn(columns[i], lower(trim(col(columns[i]))))
+        df = removeAccent(df, column)
 
-        output_path = f"{silver_path}/{folder[i]}"
-        df.write.mode("overwrite").parquet(output_path)
+        standardSave(df, table, getPrimaryKey(table))
 
-
-def remove_DuplicateAndNull(spark):
-    '''
-    Function to remove duplicate and null data (based on primary key) for the remaining dataset that had not been cleaned yet
-    '''
-
-    not_cleaned = ["category_name_translate"]
-    for item in dataset:
-        if item["table"] not in not_cleaned:           
-            print(f"Cleaning table: {item['table']}")
-            df = spark.read.parquet(f"{silver_path}/{item['table']}")
-            original = df.count()
-            if item.get('primary_key'):
-                print(item['primary_key'])
-                df = df.dropDuplicates(item['primary_key'])
-                df = df.dropna(subset=item['primary_key'])
-            else:
-                df = df.dropDuplicates()
-                df = df.dropna()
-
-            final = df.count()
-            dropped_count = original - final
-            print(f"dropped {dropped_count} row(s)")
-            output_path = f"{silver_path}/{item['table']}"
-            df.write.mode("overwrite").parquet(output_path)
-        else:
-            print(f"Cleaning table: {item['table']}")
-            df = spark.read.parquet(f"{bronze_path}/{item['table']}")
-            df = df.dropDuplicates()
-            df = df.dropna()
-            output_path = f"{silver_path}/{item['table']}"
-            df.write.mode("overwrite").parquet(output_path)
-        
-
+def clean_translation(spark):
+    input_path = f"{bronze_path}/category_name_translate"
+    df = spark.read.parquet(input_path)
+    standardSave(df, "category_name_translate", getPrimaryKey("category_name_translate"))
 
 def main():
     spark = GetSparkSession("Silver")
@@ -198,8 +196,8 @@ def main():
     clean_order_items(spark)
     clean_order_payments(spark)
     clean_order_reviews(spark)
-    removeAccent(spark)
-    remove_DuplicateAndNull(spark)
+    clean_location(spark)
+    clean_translation(spark)
     
     
     spark.stop()
