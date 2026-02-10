@@ -1,11 +1,14 @@
+import logging
 from pyspark.sql.functions import col, first, to_date, year, month, dayofweek
 from utils.config import silver_path, gold_path
+
+logger = logging.getLogger(__name__)
 
 # --- DIMENSIONS ---
 
 def create_dim_products(spark):
     '''Function to create dim_products table'''
-    print("Creating Dim Products...")
+    logger.info("Creating Dim Products...")
     df = spark.read.format("delta").load(f"{silver_path}/products")
     
     df.select(
@@ -15,9 +18,11 @@ def create_dim_products(spark):
         "product_height_cm", "product_width_cm"
     ).write.format("delta").mode("overwrite").save(f"{gold_path}/dim_products")
 
+    logger.info("Dim_products created")
+
 def create_dim_customers(spark):
     '''Function to create dim_customers table'''
-    print("Creating Dim Customers...")
+    logger.info("Creating Dim Customers...")
     cust = spark.read.format("delta").load(f"{silver_path}/customers")
     geo = spark.read.format("delta").load(f"{silver_path}/geolocation")
 
@@ -41,10 +46,12 @@ def create_dim_customers(spark):
             col("lng")
         ) \
         .write.format("delta").mode("overwrite").save(f"{gold_path}/dim_customers")
+    
+    logger.info("Dim_customers created")
 
 def create_dim_sellers(spark):
     '''Function to create dim_sellers table'''
-    print("Creating Dim Sellers...")
+    logger.info("Creating Dim Sellers...")
     sellers = spark.read.format("delta").load(f"{silver_path}/sellers")
     geo = spark.read.format("delta").load(f"{silver_path}/geolocation")
 
@@ -67,12 +74,14 @@ def create_dim_sellers(spark):
             col("lng")
         ) \
         .write.format("delta").mode("overwrite").save(f"{gold_path}/dim_sellers")
+    
+    logger.info("Dim_sellers created")
 
 # --- FACTS ---
 
 def create_fact_sales(spark):
     '''Function to create fact_sales table'''
-    print("Creating Fact Sales...")
+    logger.info("Creating Fact Sales...")
     orders = spark.read.format("delta").load(f"{silver_path}/orders")
     items = spark.read.format("delta").load(f"{silver_path}/order_items")
     
@@ -97,9 +106,11 @@ def create_fact_sales(spark):
         "order_date", "year", "month", "weekday"
     ).write.format("delta").mode("overwrite").save(f"{gold_path}/fact_sales")
 
+    logger.info("Fact_sales created")
+
 def create_fact_reviews(spark):
     '''Function to create fact_reviews table'''
-    print("Creating Fact Reviews...")
+    logger.info("Creating Fact Reviews...")
     reviews = spark.read.format("delta").load(f"{silver_path}/order_reviews")
     
     reviews.select(
@@ -108,9 +119,11 @@ def create_fact_reviews(spark):
         "review_creation_date", "review_answer_timestamp"
     ).write.format("delta").mode("overwrite").save(f"{gold_path}/fact_reviews")
 
+    logger.info("Fact_reviews created")
+
 def create_fact_payments(spark):
     '''Function to create fact_payments table'''
-    print("Creating Fact Payments...")
+    logger.info("Creating Fact Payments...")
     payments = spark.read.format("delta").load(f"{silver_path}/order_payments")
     
     payments.select(
@@ -118,7 +131,10 @@ def create_fact_payments(spark):
         "payment_installments", "payment_value"
     ).write.format("delta").mode("overwrite").save(f"{gold_path}/fact_payments")
 
+    logger.info("Fact_payments created")
+
 def CreateModel(spark): 
+    logger.info("Starting Gold layer")
     create_dim_products(spark)
     create_dim_customers(spark)
     create_dim_sellers(spark)
@@ -126,3 +142,4 @@ def CreateModel(spark):
     create_fact_sales(spark)
     create_fact_reviews(spark)
     create_fact_payments(spark)
+    logger.info("Gold layer completed")

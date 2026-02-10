@@ -1,7 +1,9 @@
+import logging
 from pyspark.sql.functions import col, lower, to_timestamp, translate, trim
 from pyspark.sql.types import IntegerType
 from utils.config import bronze_path, silver_path, dataset
 
+logger = logging.getLogger(__name__)
 
 def standardSave(df, table, primary_key=None):
     '''
@@ -11,6 +13,7 @@ def standardSave(df, table, primary_key=None):
     3. Saves parquet file into silver folder
     '''
     original = df.count()
+    logger.info(f"Saving {table}...")
 
     if primary_key:
         df = df.dropDuplicates(primary_key)
@@ -19,10 +22,10 @@ def standardSave(df, table, primary_key=None):
         df = df.dropDuplicates()
         df = df.dropna()
     final = df.count()
-    print(f"Total dropped rows: {original - final}")
+
     out_path = f"{silver_path}/{table}"
     df.write.format("delta").mode("overwrite").save(out_path)
-    print(f"Saved cleaned {table} to {out_path}")
+    logger.info(f"Saved cleaned {table} to {out_path}. Total dropped rows: {original - final}")
 
 def getPrimaryKey(table):
     '''Helper function to get Primary Key of the table'''
@@ -219,6 +222,7 @@ def clean_translation(spark):
     standardSave(df, "category_name_translate", getPrimaryKey("category_name_translate"))
 
 def CleanData(spark): 
+    logger.info("Starting Silver layer")
     clean_orders(spark)
     clean_products(spark)
     clean_order_items(spark)
@@ -226,3 +230,4 @@ def CleanData(spark):
     clean_order_reviews(spark)
     clean_location(spark)
     clean_translation(spark)
+    logger.info("Silver layer compeleted")
