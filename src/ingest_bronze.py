@@ -1,4 +1,3 @@
-from utils.sparksession import GetSparkSession
 from utils.config import bronze_path, dataset
 
 
@@ -9,6 +8,6 @@ def IngestData(spark):
         # Read data from source folder
         df = spark.read.csv(item['path'], header=True)
         # Write into parquet and save to bronze folder
-        df.write.mode("overwrite").parquet(out_path)
+        df.write.format("delta").mode("overwrite").save(out_path)
 
         print(f"Saved {item['table']} to {out_path}")

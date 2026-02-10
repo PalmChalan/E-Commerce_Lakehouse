@@ -1,6 +1,5 @@
 from pyspark.sql.functions import col, lower, to_timestamp, translate, trim
 from pyspark.sql.types import IntegerType
-from utils.sparksession import GetSparkSession
 from utils.config import bronze_path, silver_path, dataset
 
 
@@ -22,7 +21,7 @@ def standardSave(df, table, primary_key=None):
     final = df.count()
     print(f"Total dropped rows: {original - final}")
     out_path = f"{silver_path}/{table}"
-    df.write.mode("overwrite").parquet(out_path)
+    df.write.format("delta").mode("overwrite").save(out_path)
     print(f"Saved cleaned {table} to {out_path}")
 
 def getPrimaryKey(table):
@@ -50,7 +49,7 @@ def clean_orders(spark):
     
     # Read from Bronze
     input_path = f"{bronze_path}/orders"
-    df = spark.read.parquet(input_path)
+    df = spark.read.format("delta").load(input_path)
 
     # TRANSFORMATION: Convert String -> Timestamp
     # The raw format is "yyyy-MM-dd HH:mm:ss"
@@ -79,8 +78,8 @@ def clean_products(spark):
     print("Processing Products...")
     
     # Read Products and Translations dataset
-    products_df = spark.read.parquet(f"{bronze_path}/products")
-    translate_df = spark.read.parquet(f"{bronze_path}/category_name_translate")
+    products_df = spark.read.format("delta").load(f"{bronze_path}/products")
+    translate_df = spark.read.format("delta").load(f"{bronze_path}/category_name_translate")
 
     # TRANSFORMATION: Join to get English Name
     joined_df = products_df.join(
@@ -129,7 +128,7 @@ def clean_order_items(spark):
     5. Save to silver folder
     '''
     input_path = f"{bronze_path}/order_items"
-    df = spark.read.parquet(input_path)
+    df = spark.read.format("delta").load(input_path)
 
     number_cols = ["price", "freight_value"]
     timestamp_col = "shipping_limit_date"
@@ -152,7 +151,7 @@ def clean_order_payments(spark):
     4. Save to silver folder
     '''
     input_path = f"{bronze_path}/order_payments"
-    df = spark.read.parquet(input_path)
+    df = spark.read.format("delta").load(input_path)
 
     decimal_col = "payment_value"
     int_cols = ["payment_sequential", "payment_installments"]
@@ -175,7 +174,7 @@ def clean_order_reviews(spark):
     5. Save to silver folder
     '''
     input_path = f"{bronze_path}/order_reviews"
-    df = spark.read.parquet(input_path)
+    df = spark.read.format("delta").load(input_path)
 
     number_col = "review_score"
     timestamp_cols = ["review_creation_date", "review_answer_timestamp"]
@@ -204,7 +203,7 @@ def clean_location(spark):
 
     for table, column in tables:
         input_path = f"{bronze_path}/{table}"
-        df = spark.read.parquet(input_path)
+        df = spark.read.format("delta").load(input_path)
         df = removeAccent(df, column)
 
         standardSave(df, table, getPrimaryKey(table))
@@ -216,7 +215,7 @@ def clean_translation(spark):
     2. Save to silver folder
     '''
     input_path = f"{bronze_path}/category_name_translate"
-    df = spark.read.parquet(input_path)
+    df = spark.read.format("delta").load(input_path)
     standardSave(df, "category_name_translate", getPrimaryKey("category_name_translate"))
 
 def CleanData(spark): 
