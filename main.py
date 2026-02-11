@@ -10,12 +10,16 @@ SetLogger("pipeline.log")
 logger = logging.getLogger(__name__)
 
 def main():
-    logger.info("Starting Data Pipeline")
+    logger.info("Starting Data Pipeline...")
     spark = GetSparkSession("Medallion Architecture")
-    DownloadDataset()
-    IngestData(spark)
-    CleanData(spark)
-    CreateModel(spark)
+    try:
+        DownloadDataset()
+        IngestData(spark)
+        CleanData(spark)
+        CreateModel(spark)
+    except Exception as e:
+        logger.exception(f"Data Pipeline error: {e}")
+        raise e
     logger.info("Data pipeline successfully executed. Closing spark session")
     spark.stop()
 

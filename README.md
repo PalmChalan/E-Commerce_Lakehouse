@@ -42,7 +42,8 @@ The pipeline follows the **Medallion Architecture** (Bronze $\to$ Silver $\to$ G
 │   ├── model_gold.py       # Models Star Schema
 ├── utils/
 │   ├── config.py           # Paths & Global variables
-│   └── sparksession.py     # Spark Config with Delta Extensions
+│   ├── sparksession.py     # Spark Config with Delta Extensions
+│   └── logger.py           # Logging function
 ├── main.py                 # Main orchestrator
 ├── Dockerfile              # Container definition
 ├── docker-compose.yml      # Service orchestration

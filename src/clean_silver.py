@@ -48,7 +48,6 @@ def clean_orders(spark):
     2. Remove null and duplicates
     3. Save to silver folder
     """
-    print("Processing Orders...")
     
     # Read from Bronze
     input_path = f"{bronze_path}/orders"
@@ -78,7 +77,6 @@ def clean_products(spark):
     3. Remove null and duplicates
     4. Save to silver folder
     """
-    print("Processing Products...")
     
     # Read Products and Translations dataset
     products_df = spark.read.format("delta").load(f"{bronze_path}/products")
@@ -222,12 +220,16 @@ def clean_translation(spark):
     standardSave(df, "category_name_translate", getPrimaryKey("category_name_translate"))
 
 def CleanData(spark): 
-    logger.info("Starting Silver layer")
-    clean_orders(spark)
-    clean_products(spark)
-    clean_order_items(spark)
-    clean_order_payments(spark)
-    clean_order_reviews(spark)
-    clean_location(spark)
-    clean_translation(spark)
+    logger.info("Starting Silver layer...")
+    try:
+        clean_orders(spark)
+        clean_products(spark)
+        clean_order_items(spark)
+        clean_order_payments(spark)
+        clean_order_reviews(spark)
+        clean_location(spark)
+        clean_translation(spark)
+    except Exception as e:
+        logger.exception(f"Silver layer error: {e}")
+        raise e
     logger.info("Silver layer compeleted")

@@ -134,12 +134,16 @@ def create_fact_payments(spark):
     logger.info("Fact_payments created")
 
 def CreateModel(spark): 
-    logger.info("Starting Gold layer")
-    create_dim_products(spark)
-    create_dim_customers(spark)
-    create_dim_sellers(spark)
+    logger.info("Starting Gold layer...")
+    try:
+        create_dim_products(spark)
+        create_dim_customers(spark)
+        create_dim_sellers(spark)
     
-    create_fact_sales(spark)
-    create_fact_reviews(spark)
-    create_fact_payments(spark)
+        create_fact_sales(spark)
+        create_fact_reviews(spark)
+        create_fact_payments(spark)
+    except Exception as e:
+        logger.exception(f"Gold layer error: {e}")
+        raise e
     logger.info("Gold layer completed")
